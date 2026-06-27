@@ -6,6 +6,18 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
-    path: Assets/Scenes/SampleScene.unity
-    guid: 99c9720ab356a0642a771bea13969a05
+    path: Assets/Scenes/MainMenu.unity
+    guid: 5f0d8bc90ed32c54ca51822c95c9f05d
+  - enabled: 1
+    path: Assets/Sahneler/Anasahne.unity
+    guid: b82b3291a971d4ef89a55d6a2e676b7a
+  - enabled: 1
+    path: Assets/Sahneler/BiberToplama.unity
+    guid: 938cb4ae4c1f2d84495c57fe0a3d4021
+  - enabled: 1
+    path: "Assets/Sahneler/Bal\u0131kTutma.unity"
+    guid: 4226a2659331c7c49822ff1010a34842
+  - enabled: 1
+    path: "Assets/Sahneler/Horoz\xC7iftlik.unity"
+    guid: 87a58600509a854469d9cbf73ea9f0ba
   m_configObjects: {}

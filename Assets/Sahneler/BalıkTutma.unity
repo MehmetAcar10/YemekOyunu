@@ -804,6 +804,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_AquariumName: akvaryum1
   m_FishTag: "Bal\u0131k"
+  m_FishIngredient: {fileID: 11400000, guid: fa397d5525dde1044aa6c1146e2fb11d, type: 2}
+  m_ReturnSceneName: Anasahne
+  m_ReturnDelay: 1.2
   m_SweepSpeed: 14
   m_DropSpeed: 26
   m_ReturnSpeed: 30

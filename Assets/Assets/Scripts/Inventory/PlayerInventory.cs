@@ -3,9 +3,11 @@ using UnityEngine;
 
 public class PlayerInventory : MonoBehaviour
 {
-  public const int SlotCount = 4;
+  public const int SlotCount = 5;
+  public const int MaxStack = 5;
 
   [SerializeField] private IngredientSO[] slots = new IngredientSO[SlotCount];
+  [SerializeField] private int[] counts = new int[SlotCount];
 
   public event Action OnChanged;
   public event Action OnSelectionChanged;
@@ -27,7 +29,37 @@ public class PlayerInventory : MonoBehaviour
       slots = resized;
     }
 
+    if (counts == null || counts.Length != SlotCount)
+    {
+      int[] resizedCounts = new int[SlotCount];
+      if (counts != null)
+      {
+        int copyCount = Mathf.Min(counts.Length, SlotCount);
+        for (int i = 0; i < copyCount; i++)
+          resizedCounts[i] = counts[i];
+      }
+
+      counts = resizedCounts;
+    }
+
+    // Inspector'da malzeme atanmis ama adet 0 kalmissa en az 1 yap
+    for (int i = 0; i < SlotCount; i++)
+    {
+      if (slots[i] != null && counts[i] <= 0)
+        counts[i] = 1;
+      else if (slots[i] == null)
+        counts[i] = 0;
+    }
+
     SelectSlot(0);
+  }
+
+  public int GetCount(int index)
+  {
+    if (index < 0 || index >= SlotCount)
+      return 0;
+
+    return slots[index] != null ? counts[index] : 0;
   }
 
   private void Update()
@@ -109,17 +141,30 @@ public class PlayerInventory : MonoBehaviour
 
   public bool TryAdd(IngredientSO ingredient)
   {
-    if (ingredient == null || IsFull)
+    if (ingredient == null)
       return false;
 
     bool wasEmpty = IsEmpty;
 
+    // 1) Ayni malzemenin oldugu, dolmamis bir stack'e ekle
+    for (int i = 0; i < SlotCount; i++)
+    {
+      if (slots[i] == ingredient && counts[i] < MaxStack)
+      {
+        counts[i]++;
+        OnChanged?.Invoke();
+        return true;
+      }
+    }
+
+    // 2) Bos slota yeni stack olarak ekle
     for (int i = 0; i < SlotCount; i++)
     {
       if (slots[i] != null)
         continue;
 
       slots[i] = ingredient;
+      counts[i] = 1;
       OnChanged?.Invoke();
 
       if (wasEmpty)
@@ -131,12 +176,35 @@ public class PlayerInventory : MonoBehaviour
     return false;
   }
 
+  /// <summary>Bu malzemeden bir tane daha eklenebilir mi (bos slot ya da uygun stack var mi).</summary>
+  public bool CanAccept(IngredientSO ingredient)
+  {
+    if (ingredient == null)
+      return false;
+
+    for (int i = 0; i < SlotCount; i++)
+    {
+      if (slots[i] == null)
+        return true;
+      if (slots[i] == ingredient && counts[i] < MaxStack)
+        return true;
+    }
+
+    return false;
+  }
+
   public bool TryRemove(int slotIndex)
   {
     if (slotIndex < 0 || slotIndex >= SlotCount || slots[slotIndex] == null)
       return false;
 
-    slots[slotIndex] = null;
+    counts[slotIndex]--;
+    if (counts[slotIndex] <= 0)
+    {
+      counts[slotIndex] = 0;
+      slots[slotIndex] = null;
+    }
+
     OnChanged?.Invoke();
 
     if (slotIndex == SelectedSlotIndex && GetSelectedItem() == null)
@@ -160,7 +228,10 @@ public class PlayerInventory : MonoBehaviour
   public void Clear()
   {
     for (int i = 0; i < SlotCount; i++)
+    {
       slots[i] = null;
+      counts[i] = 0;
+    }
 
     OnChanged?.Invoke();
   }

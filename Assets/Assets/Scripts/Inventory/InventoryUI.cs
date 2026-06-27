@@ -161,7 +161,17 @@ public class InventoryUI : MonoBehaviour
         slotNumberLabels[i].text = (i + 1).ToString();
 
       if (slotLabels != null && i < slotLabels.Length && slotLabels[i] != null)
-        slotLabels[i].text = hasItem ? item.ingredientName : "-";
+      {
+        if (hasItem)
+        {
+          int count = inventory.GetCount(i);
+          slotLabels[i].text = count > 1 ? $"{item.ingredientName} x{count}" : item.ingredientName;
+        }
+        else
+        {
+          slotLabels[i].text = "-";
+        }
+      }
     }
   }
 }

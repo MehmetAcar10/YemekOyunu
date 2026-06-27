@@ -1,4 +1,7 @@
+using System.Collections;
 using UnityEngine;
+using UnityEngine.SceneManagement;
+using Summerjam.Utils;
 
 [DisallowMultipleComponent]
 public class AquariumArrowFishing : MonoBehaviour
@@ -6,6 +9,14 @@ public class AquariumArrowFishing : MonoBehaviour
     [Header("References")]
     [SerializeField] private string m_AquariumName = "akvaryum1";
     [SerializeField] private string m_FishTag = "Balık";
+
+    [Header("Odul / Geri Donus")]
+    [Tooltip("Yakalanan her balik icin envantere eklenecek malzeme (PufferFish).")]
+    [SerializeField] private IngredientSO m_FishIngredient;
+    [Tooltip("Tum baliklar yakalaninca donulecek sahne.")]
+    [SerializeField] private string m_ReturnSceneName = "Anasahne";
+    [Tooltip("Son balik yakalandiktan sonra sahneye donmeden once beklenecek sure.")]
+    [SerializeField] private float m_ReturnDelay = 1.2f;
 
     [Header("Movement")]
     [SerializeField] private float m_SweepSpeed = 14f;
@@ -29,6 +40,8 @@ public class AquariumArrowFishing : MonoBehaviour
     private float m_DropX;
     private Transform m_CaughtFish;
     private AquariumFishController m_FishController;
+    private int m_RemainingFish;
+    private bool m_Returning;
 
     private static int s_Score;
     private GUIStyle m_Style;
@@ -45,6 +58,10 @@ public class AquariumArrowFishing : MonoBehaviour
 
         m_FishController = aquarium.GetComponent<AquariumFishController>();
         s_Score = 0;
+        m_Returning = false;
+
+        try { m_RemainingFish = GameObject.FindGameObjectsWithTag(m_FishTag).Length; }
+        catch (UnityException) { m_RemainingFish = 0; }
 
         Bounds b = ComputeBounds(aquarium);
         m_MinX = b.min.x + m_SideMargin;
@@ -74,6 +91,10 @@ public class AquariumArrowFishing : MonoBehaviour
 
     private void Update()
     {
+        // Kesme widget'i aciksa balik tutma tamamen duraklar
+        if (ContourCutSession.IsActive)
+            return;
+
         switch (m_State)
         {
             case State.Sweeping:
@@ -162,13 +183,57 @@ public class AquariumArrowFishing : MonoBehaviour
             m_CaughtFish = null;
             Destroy(fishGo);
             s_Score++;
+
+            // Balik her halukarda akvaryumdan gider
+            m_RemainingFish--;
             if (m_FishController != null)
             {
                 m_FishController.RefreshFishCache();
             }
+
+            m_State = State.Sweeping;
+
+            // Kesme widget'ini baslat; sonuc OnCutComplete'te islenir.
+            // Widget acikken Update guard'i sayesinde ok duraklar.
+            if (m_FishIngredient != null &&
+                PufferFishCutPopupWidget.TryStartCut(m_FishIngredient, null, null, OnCutComplete))
+            {
+                return;
+            }
+
+            // Widget baslatilamazsa eski davranisa dus (aninda say)
+            OnCutComplete(true);
+            return;
         }
 
         m_State = State.Sweeping;
+    }
+
+    private void OnCutComplete(bool success)
+    {
+        // Sadece kontur basarili olursa balik envantere kuyruga alinir
+        if (success && m_FishIngredient != null)
+            PendingPickups.Add(m_FishIngredient, 1);
+
+        // Tum baliklar tutulduysa (son kesim de bittikten sonra) Anasahne'ye don
+        if (m_RemainingFish <= 0 && !m_Returning)
+        {
+            m_Returning = true;
+            StartCoroutine(ReturnToSceneAfterDelay());
+        }
+    }
+
+    private IEnumerator ReturnToSceneAfterDelay()
+    {
+        yield return new WaitForSecondsRealtime(m_ReturnDelay);
+
+        if (string.IsNullOrEmpty(m_ReturnSceneName))
+            yield break;
+
+        if (SceneLoader.Instance != null)
+            SceneLoader.Instance.LoadScene(m_ReturnSceneName);
+        else
+            SceneManager.LoadScene(m_ReturnSceneName);
     }
 
     private Transform FindFishNear(Vector3 point)
