@@ -783,6 +783,7 @@ GameObject:
   m_Component:
   - component: {fileID: 834253809}
   - component: {fileID: 834253808}
+  - component: {fileID: 834253810}
   m_Layer: 0
   m_Name: FishingArrow
   m_TagString: Untagged
@@ -832,6 +833,19 @@ Transform:
   - {fileID: 277020563}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &834253810
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 834253807}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 55c844c543c895641bfbbbfea3082f26, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  lockCursor: 0
 --- !u!1 &942905797 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 919132149155446097, guid: 9cd60f40e01bd8e44a1370d6340a99a4,
