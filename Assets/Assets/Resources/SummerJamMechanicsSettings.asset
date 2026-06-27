@@ -1,0 +1,31 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c150134f86aaaac46bb5332fef7c0400, type: 3}
+  m_Name: SummerJamMechanicsSettings
+  m_EditorClassIdentifier: 
+  recipesFolder: Assets/ingredients_recipes
+  recipeDatabasePath: Assets/ingredients_recipes/recipe_database.asset
+  fallbackRecipePath: Assets/ingredients_recipes/fallback_recipe.asset
+  resourcesDatabasePath: Assets/Resources/recipe_database.asset
+  gameManagerName: GameManager
+  interactionCursorName: InteractionCursor
+  trashCanName: TrashCan
+  interactZoneName: InteractZone
+  inputHandlerName: InteractionInputHandler
+  interactKey: 101
+  withdrawKey: 113
+  bowlZoneCenter: {x: 0, y: 0.35, z: 0}
+  bowlZoneSize: {x: 1.35, y: 0.9, z: 1.35}
+  trashZoneCenter: {x: 0, y: 0.35, z: 0}
+  trashZoneSize: {x: 1.05, y: 0.9, z: 1.05}
+  defaultTrashCanPosition: {x: 2, y: 0.35, z: 0}
+  defaultTrashCanScale: {x: 0.6, y: 0.7, z: 0.6}

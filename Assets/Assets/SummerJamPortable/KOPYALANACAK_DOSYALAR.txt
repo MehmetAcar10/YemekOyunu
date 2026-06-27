@@ -1,0 +1,13 @@
+﻿SUMMERJAM MEKANIKLERI - TASIMA PAKETI
+=====================================
+
+Kurulum icin KURULUM.txt dosyasina bak.
+Menu veya ozel Unity araci GEREKMEZ.
+
+Zip icinde:
+- Assets/Scripts      (kod)
+- Assets/SummerJamPortable (otomatik bootstrap)
+- Assets/ingredients_recipes (tarif verileri)
+- Assets/Prefabs      (gorseller)
+- Assets/Resources    (recipe_database)
+- Assets/Scenes/GameplayDemo.unity (ornek sahne)

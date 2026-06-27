@@ -1,0 +1,30 @@
+KURULUM (MENU GEREKMEZ)
+========================
+
+1) Zip'i ac.
+2) Icindeki "Assets" klasorunun TAMAMINI hedef Unity projesinin
+   "Assets" klasorune yapistir.
+3) Unity'yi ac veya zaten aciksa import bitmesini bekle.
+4) Ornek sahne: Assets/Scenes/GameplayDemo.unity dosyasini ac.
+5) Play'e bas.
+
+Hicbir Tools/SummerJam menusune gerek yok.
+Sistem Play'e basinca otomatik kurulur:
+- GameManager (envanter + UI)
+- Kase / cop trigger alanlari
+- Tarif referanslari (Resources/recipe_database)
+
+BOS SAHNE KULLANACAKSAN
+-----------------------
+Sadece Play'e basman yeterli; bootstrap otomatik Bowl, TrashCan ve
+GameManager olusturur. Malzeme objelerine IngredientPickup + Collider ekle.
+
+KONTROLLER
+----------
+1-4 : Envanter slot sec
+E   : Kaseye koy / Cop (fare trigger icindeyken)
+Q   : Kaseden al (fare kase uzerindeyken)
+Tik : Malzeme topla / birlesmis urunu kasadan al
+Surukle: Karistir (min 2 malzeme)
+
+ONERILEN UNITY SURUMU: 2022.3.x (URP)

@@ -1,0 +1,22 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d0f6a4c39e5f6b7c0a9d8e7f6a5b4c30, type: 3}
+  m_Name: recipe_database
+  m_EditorClassIdentifier: 
+  specificRecipes:
+  - {fileID: 11400000, guid: fce14dddd642a63448b18ffff56b36dd, type: 2}
+  - {fileID: 11400000, guid: bd9bc37a4f8687c4e9fa067b9e864208, type: 2}
+  - {fileID: 11400000, guid: b2cf35dd802b8d04da0e3854bcfb018c, type: 2}
+  - {fileID: 11400000, guid: ebc7342bfb008f24d8ae372eead65265, type: 2}
+  - {fileID: 11400000, guid: 54b3d4ed53855cb42b696ee14fed8e15, type: 2}
+  fallbackRecipe: {fileID: 11400000, guid: c9e5f3b28d4e5f6a9b8c7d6e5f4a3b20, type: 2}
+  defaultMixRotations: 1
