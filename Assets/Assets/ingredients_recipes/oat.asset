@@ -13,5 +13,5 @@ MonoBehaviour:
   m_Name: oat
   m_EditorClassIdentifier: 
   ingredientName: Oat
-  visualPrefab: {fileID: 3138108522133998452, guid: bd9a5a2adaf1fd4499b7ef6dd4420acd,
+  visualPrefab: {fileID: 1692019485874507235, guid: 6f7bae3284e105f4fa40eb375c75a4d4,
     type: 3}

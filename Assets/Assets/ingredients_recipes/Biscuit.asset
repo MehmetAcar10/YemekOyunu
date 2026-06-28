@@ -13,4 +13,5 @@ MonoBehaviour:
   m_Name: Biscuit
   m_EditorClassIdentifier: 
   ingredientName: 
-  visualPrefab: {fileID: 0}
+  visualPrefab: {fileID: 919132149155446097, guid: 6cc0dce2cfa66774e9b2ed965c836d26,
+    type: 3}

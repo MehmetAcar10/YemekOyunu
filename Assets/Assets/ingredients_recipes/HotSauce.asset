@@ -13,4 +13,5 @@ MonoBehaviour:
   m_Name: HotSauce
   m_EditorClassIdentifier: 
   ingredientName: 
-  visualPrefab: {fileID: 0}
+  visualPrefab: {fileID: 2038444504646039127, guid: 9f14b5dbec241b54e99a8cdbf092dca9,
+    type: 3}

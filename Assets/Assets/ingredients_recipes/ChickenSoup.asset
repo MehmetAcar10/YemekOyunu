@@ -24,8 +24,9 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 0712d865604f20149b8639e4c45a641f, type: 2}
   - {fileID: 11400000, guid: fe7129efb6da1cf42849e6bce04e25d2, type: 2}
   - {fileID: 11400000, guid: dc17aca5d1ce90a40b48abb62f38c874, type: 2}
-  requiredRotations: 1
-  resultPrefab: {fileID: 0}
+  requiredRotations: 4
+  resultPrefab: {fileID: 919132149155446097, guid: c6c5820fe2684764e9583554e5c6c159,
+    type: 3}
   resultInventoryItem: {fileID: 0}
   slimInventoryItem: {fileID: 0}
   isMainRecipe: 0

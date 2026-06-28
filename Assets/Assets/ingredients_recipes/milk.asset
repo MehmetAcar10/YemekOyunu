@@ -13,5 +13,5 @@ MonoBehaviour:
   m_Name: milk
   m_EditorClassIdentifier: 
   ingredientName: Milk
-  visualPrefab: {fileID: 5146639641390349304, guid: e282230e41d28104f884960dfb1a7ae6,
+  visualPrefab: {fileID: 5727534837751914096, guid: 45fd353dbd886a7479164b5219569a3d,
     type: 3}

@@ -13,4 +13,5 @@ MonoBehaviour:
   m_Name: water
   m_EditorClassIdentifier: 
   ingredientName: 
-  visualPrefab: {fileID: 0}
+  visualPrefab: {fileID: 919132149155446097, guid: f9ed6dcfa6a79ee4dbafc61f72e440f9,
+    type: 3}

@@ -53,6 +53,10 @@ namespace Summerjam.MainMenu
 
         private void Start()
         {
+            // Ana menüde mouse her zaman görünür ve serbest olmalı
+            Cursor.visible = true;
+            Cursor.lockState = CursorLockMode.None;
+
             InitializeMenu();
             SetupButtonListeners();
             StartCoroutine(AnimateMenuEntrance());
@@ -67,6 +71,10 @@ namespace Summerjam.MainMenu
         private void Update()
         {
             AnimateCameraDrift();
+
+            // Her frame cursor durumunu zorla (diğer scriptler kilitleyebilir)
+            Cursor.visible = true;
+            Cursor.lockState = CursorLockMode.None;
         }
 
         /// <summary>
@@ -220,8 +228,13 @@ namespace Summerjam.MainMenu
         private void StartNewGame()
         {
             Debug.Log("[MainMenu] Yeni oyun başlatılıyor...");
+
+            // Cutscene bölüm ilerlemesini sıfırla
+            PlayerPrefs.SetInt("CutsceneChapter", 0);
+            PlayerPrefs.Save();
+
             if (SceneLoader.Instance != null)
-                SceneLoader.Instance.LoadScene(gameSceneName);
+                SceneLoader.Instance.LoadScene(1);
         }
 
         #endregion

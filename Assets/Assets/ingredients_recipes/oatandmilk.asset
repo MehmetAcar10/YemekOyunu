@@ -17,7 +17,7 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 36c76903ff00b354eb4f0278d42185e7, type: 2}
   - {fileID: 11400000, guid: 63e74ff7f95442f409e6b1008d997d99, type: 2}
   requiredRotations: 1
-  resultPrefab: {fileID: 86883945492441372, guid: 28e68c2cc928e64498feb0f0dfecc281,
+  resultPrefab: {fileID: 919132149155446097, guid: 3a44aee160eab714fa948bd737e0ab2c,
     type: 3}
   resultInventoryItem: {fileID: 11400000, guid: 06b203dd40585314b8098964f7b684ee,
     type: 2}

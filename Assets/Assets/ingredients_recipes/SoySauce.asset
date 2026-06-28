@@ -13,4 +13,5 @@ MonoBehaviour:
   m_Name: SoySauce
   m_EditorClassIdentifier: 
   ingredientName: 
-  visualPrefab: {fileID: 0}
+  visualPrefab: {fileID: 5626099309005582402, guid: 2a6541791ea7791438a4e831ba9809ec,
+    type: 3}
