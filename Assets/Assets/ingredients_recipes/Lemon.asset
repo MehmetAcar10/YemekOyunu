@@ -12,6 +12,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e975a7533a9472346a125486c1f699b0, type: 3}
   m_Name: Lemon
   m_EditorClassIdentifier: 
-  ingredientName: 
+  ingredientName: Lemon
   visualPrefab: {fileID: 919132149155446097, guid: e03c27936445c194d99538b69abc7020,
     type: 3}

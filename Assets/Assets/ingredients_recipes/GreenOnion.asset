@@ -12,6 +12,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e975a7533a9472346a125486c1f699b0, type: 3}
   m_Name: GreenOnion
   m_EditorClassIdentifier: 
-  ingredientName: 
+  ingredientName: Green Onion
   visualPrefab: {fileID: 1057004499084291356, guid: be64a5465c011db439d5fb0bcd55a569,
     type: 3}

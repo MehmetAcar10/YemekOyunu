@@ -43,12 +43,8 @@ public class IngredientPickupByKey : MonoBehaviour
             return;
         }
 
-        if (!m_Inventory.TryAdd(pickup.GetIngredient()))
-        {
-            return;
-        }
-
-        Destroy(pickup.gameObject);
+        // Sonsuz kaynak: TryCollect nesneyi yok etmez, cooldown'u da burada uygular.
+        pickup.TryCollect(m_Inventory);
     }
 
     private IngredientPickup FindClosestPickup()

@@ -58,15 +58,15 @@ public class InventoryUI : MonoBehaviour
 
   private void BuildRuntimeUi()
   {
-    Canvas canvas = FindObjectOfType<Canvas>();
-    if (canvas == null)
-    {
-      GameObject canvasObject = new GameObject("InventoryCanvas");
-      canvas = canvasObject.AddComponent<Canvas>();
-      canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-      canvasObject.AddComponent<CanvasScaler>().uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-      canvasObject.AddComponent<GraphicRaycaster>();
-    }
+    // Envanter HER ZAMAN kendi ozel canvas'ina kurulur. Sahnedeki baska bir
+    // canvas'i (orn. acilis cutscene canvas'i) paylasirsak, o canvas kapatilinca
+    // envanter de gorunmez olur. Yuksek sortingOrder ile en ustte cizilir.
+    GameObject canvasObject = new GameObject("InventoryCanvas");
+    Canvas canvas = canvasObject.AddComponent<Canvas>();
+    canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+    canvas.sortingOrder = 100;
+    canvasObject.AddComponent<CanvasScaler>().uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+    canvasObject.AddComponent<GraphicRaycaster>();
 
     if (FindObjectOfType<UnityEngine.EventSystems.EventSystem>() == null)
     {

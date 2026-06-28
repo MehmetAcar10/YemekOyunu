@@ -12,6 +12,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e975a7533a9472346a125486c1f699b0, type: 3}
   m_Name: Biscuit
   m_EditorClassIdentifier: 
-  ingredientName: 
+  ingredientName: Biscuit
   visualPrefab: {fileID: 919132149155446097, guid: 6cc0dce2cfa66774e9b2ed965c836d26,
     type: 3}

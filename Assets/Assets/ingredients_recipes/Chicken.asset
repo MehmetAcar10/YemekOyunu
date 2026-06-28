@@ -12,6 +12,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e975a7533a9472346a125486c1f699b0, type: 3}
   m_Name: Chicken
   m_EditorClassIdentifier: 
-  ingredientName: Tavuk
+  ingredientName: Chicken
   visualPrefab: {fileID: 7330338714815089209, guid: 2c2897bafa1053440b8f3b020069f328,
     type: 3}

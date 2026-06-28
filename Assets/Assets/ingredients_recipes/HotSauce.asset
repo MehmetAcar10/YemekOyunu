@@ -12,6 +12,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e975a7533a9472346a125486c1f699b0, type: 3}
   m_Name: HotSauce
   m_EditorClassIdentifier: 
-  ingredientName: 
+  ingredientName: Hot Sauce
   visualPrefab: {fileID: 2038444504646039127, guid: 9f14b5dbec241b54e99a8cdbf092dca9,
     type: 3}

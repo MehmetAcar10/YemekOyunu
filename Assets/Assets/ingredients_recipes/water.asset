@@ -12,6 +12,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e975a7533a9472346a125486c1f699b0, type: 3}
   m_Name: water
   m_EditorClassIdentifier: 
-  ingredientName: 
+  ingredientName: Water
   visualPrefab: {fileID: 919132149155446097, guid: f9ed6dcfa6a79ee4dbafc61f72e440f9,
     type: 3}
