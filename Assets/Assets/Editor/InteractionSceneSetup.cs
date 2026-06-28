@@ -11,9 +11,9 @@ public static class InteractionSceneSetup
     private const string InteractZoneName = "InteractZone";
 
     private static readonly Vector3 BowlZoneCenter = new Vector3(0f, 0.35f, 0f);
-    private static readonly Vector3 BowlZoneSize = new Vector3(1.35f, 0.9f, 1.35f);
+    private static readonly Vector3 BowlZoneSize = new Vector3(2.5f, 1.5f, 2.5f);
     private static readonly Vector3 TrashZoneCenter = new Vector3(0f, 0.35f, 0f);
-    private static readonly Vector3 TrashZoneSize = new Vector3(1.05f, 0.9f, 1.05f);
+    private static readonly Vector3 TrashZoneSize = new Vector3(2.5f, 1.5f, 2.5f);
     private static readonly Vector3 TrashCanPosition = new Vector3(2f, 0.35f, 0f);
 
     static InteractionSceneSetup()
@@ -93,7 +93,7 @@ public static class InteractionSceneSetup
             return;
         }
 
-        EnsureInteractZoneChild(kase.transform, BowlZoneCenter, BowlZoneSize);
+        InteractZoneUtility.ConfigureChildZone(kase.transform, InteractZoneName, BowlZoneCenter, BowlZoneSize);
 
         BowlDeposit bowlDeposit = kase.GetComponent<BowlDeposit>();
         if (bowlDeposit == null)
@@ -119,7 +119,7 @@ public static class InteractionSceneSetup
             trashCan.transform.localScale = new Vector3(0.6f, 0.7f, 0.6f);
         }
 
-        EnsureInteractZoneChild(trashCan.transform, TrashZoneCenter, TrashZoneSize);
+        InteractZoneUtility.ConfigureChildZone(trashCan.transform, InteractZoneName, TrashZoneCenter, TrashZoneSize);
 
         TrashBin trashBin = trashCan.GetComponent<TrashBin>();
         if (trashBin == null)
@@ -138,48 +138,6 @@ public static class InteractionSceneSetup
         GameObject handlerObject = new GameObject("InteractionInputHandler");
         Undo.RegisterCreatedObjectUndo(handlerObject, "Create Interaction Input Handler");
         Undo.AddComponent<InteractionInputHandler>(handlerObject);
-    }
-
-    private static InteractionTriggerZone EnsureInteractZoneChild(
-        Transform parent,
-        Vector3 localCenter,
-        Vector3 size)
-    {
-        Transform zoneTransform = parent.Find(InteractZoneName);
-        GameObject zoneObject;
-
-        if (zoneTransform == null)
-        {
-            zoneObject = new GameObject(InteractZoneName);
-            Undo.RegisterCreatedObjectUndo(zoneObject, "Create Interact Zone");
-            zoneObject.transform.SetParent(parent, false);
-        }
-        else
-        {
-            zoneObject = zoneTransform.gameObject;
-        }
-
-        zoneObject.transform.localPosition = localCenter;
-        zoneObject.transform.localRotation = Quaternion.identity;
-        zoneObject.transform.localScale = Vector3.one;
-
-        BoxCollider boxCollider = zoneObject.GetComponent<BoxCollider>();
-        if (boxCollider == null)
-            boxCollider = Undo.AddComponent<BoxCollider>(zoneObject);
-
-        boxCollider.isTrigger = true;
-        boxCollider.center = Vector3.zero;
-        boxCollider.size = size;
-
-        InteractionTriggerZone zone = zoneObject.GetComponent<InteractionTriggerZone>();
-        if (zone == null)
-            zone = Undo.AddComponent<InteractionTriggerZone>(zoneObject);
-
-        SerializedObject serializedZone = new SerializedObject(zone);
-        serializedZone.FindProperty("zoneCollider").objectReferenceValue = boxCollider;
-        serializedZone.ApplyModifiedPropertiesWithoutUndo();
-
-        return zone;
     }
 }
 #endif

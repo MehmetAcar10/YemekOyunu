@@ -19,7 +19,7 @@ public static class SummerJamPortableInstaller
         "Assets/Scripts/Kase/Kase.cs",
         "Assets/Scripts/Kase/RecipeDiscovery.cs",
         "Assets/SummerJamPortable",
-        "Assets/ingredients_recipes",
+        "Assets/Assets/ingredients_recipes",
         "Assets/Editor/RecipeSystemSetup.cs",
         "Assets/Editor/InteractionSceneSetup.cs"
     };

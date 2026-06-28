@@ -24,18 +24,25 @@ public static class SummerJamGameBootstrap
     EnsureBowl(settings, inventory);
     EnsureTrashCan(settings, inventory);
     WireIngredientPickups(inventory);
+    PendingPickups.Drain(inventory);
   }
 
   private static PlayerInventory EnsureGameManager(SummerJamMechanicsSettings settings)
   {
     PlayerInventory inventory = Object.FindObjectOfType<PlayerInventory>();
-    if (inventory != null)
-      return inventory;
+    GameObject gameManager = inventory != null ? inventory.gameObject : null;
 
-    GameObject gameManager = new GameObject(settings.gameManagerName);
-    inventory = gameManager.AddComponent<PlayerInventory>();
-    gameManager.AddComponent<InventoryUI>();
-    gameManager.AddComponent<RecipeDiscovery>();
+    if (inventory == null)
+    {
+      gameManager = new GameObject(settings.gameManagerName);
+      inventory = gameManager.AddComponent<PlayerInventory>();
+      gameManager.AddComponent<InventoryUI>();
+      gameManager.AddComponent<RecipeDiscovery>();
+    }
+
+    if (gameManager.GetComponent<InventoryRewardReceiver>() == null)
+      gameManager.AddComponent<InventoryRewardReceiver>();
+
     return inventory;
   }
 
@@ -51,11 +58,17 @@ public static class SummerJamGameBootstrap
 
   private static void EnsureInputHandler(SummerJamMechanicsSettings settings)
   {
-    if (Object.FindObjectOfType<InteractionInputHandler>() != null)
-      return;
+    if (Object.FindObjectOfType<InteractionInputHandler>() == null)
+    {
+      GameObject handlerObject = new GameObject(settings.inputHandlerName);
+      handlerObject.AddComponent<InteractionInputHandler>();
+    }
 
-    GameObject handlerObject = new GameObject(settings.inputHandlerName);
-    handlerObject.AddComponent<InteractionInputHandler>();
+    if (Object.FindObjectOfType<IngredientPickupInput>() == null)
+    {
+      GameObject pickupInputObject = new GameObject("IngredientPickupInput");
+      pickupInputObject.AddComponent<IngredientPickupInput>();
+    }
   }
 
   private static void EnsureInteractionCursor(SummerJamMechanicsSettings settings)
@@ -87,11 +100,12 @@ public static class SummerJamGameBootstrap
 
     kase.AutoWireMissingReferences();
 
-    EnsureInteractZoneChild(
+    InteractZoneUtility.ConfigureChildZone(
       kase.transform,
       settings.interactZoneName,
       settings.bowlZoneCenter,
-      settings.bowlZoneSize);
+      settings.bowlZoneSize,
+      settings.bowlZoneMinWorldSize);
 
     BowlDeposit bowlDeposit = kase.GetComponent<BowlDeposit>();
     if (bowlDeposit == null)
@@ -126,56 +140,23 @@ public static class SummerJamGameBootstrap
       trashCan.transform.position = settings.defaultTrashCanPosition;
       trashCan.transform.localScale = settings.defaultTrashCanScale;
     }
+    else if (trashCan.GetComponent<Collider>() == null)
+    {
+      BoxCollider bodyCollider = trashCan.AddComponent<BoxCollider>();
+      bodyCollider.isTrigger = false;
+    }
 
-    EnsureInteractZoneChild(
+    InteractZoneUtility.ConfigureChildZone(
       trashCan.transform,
       settings.interactZoneName,
       settings.trashZoneCenter,
-      settings.trashZoneSize);
+      settings.trashZoneSize,
+      settings.trashZoneMinWorldSize);
 
     TrashBin trashBin = trashCan.GetComponent<TrashBin>();
     if (trashBin == null)
       trashBin = trashCan.AddComponent<TrashBin>();
 
     trashBin.SetInventory(inventory);
-  }
-
-  private static void EnsureInteractZoneChild(
-    Transform parent,
-    string zoneName,
-    Vector3 localCenter,
-    Vector3 size)
-  {
-    Transform existingZone = parent.Find(zoneName);
-    bool createdZone = existingZone == null;
-    GameObject zoneObject = createdZone
-      ? new GameObject(zoneName)
-      : existingZone.gameObject;
-
-    if (createdZone)
-      zoneObject.transform.SetParent(parent, false);
-
-    if (createdZone)
-    {
-      zoneObject.transform.localPosition = localCenter;
-      zoneObject.transform.localRotation = Quaternion.identity;
-      zoneObject.transform.localScale = Vector3.one;
-    }
-
-    BoxCollider boxCollider = zoneObject.GetComponent<BoxCollider>();
-    bool addedCollider = boxCollider == null;
-    if (addedCollider)
-      boxCollider = zoneObject.AddComponent<BoxCollider>();
-
-    boxCollider.isTrigger = true;
-
-    if (createdZone || addedCollider)
-    {
-      boxCollider.center = Vector3.zero;
-      boxCollider.size = size;
-    }
-
-    if (zoneObject.GetComponent<InteractionTriggerZone>() == null)
-      zoneObject.AddComponent<InteractionTriggerZone>();
   }
 }

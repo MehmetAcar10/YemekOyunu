@@ -1,3 +1,4 @@
+using System.Collections;
 using UnityEngine;
 
 /// <summary>
@@ -5,22 +6,27 @@ using UnityEngine;
 /// gelen bekleyen malzemeleri (PendingPickups) envantere bosaltir.
 /// </summary>
 [DisallowMultipleComponent]
+[DefaultExecutionOrder(100)]
 public class InventoryRewardReceiver : MonoBehaviour
 {
     [SerializeField] private PlayerInventory inventory;
 
-    private void Start()
+    private void OnEnable()
     {
+        StartCoroutine(DrainWhenReady());
+    }
+
+    private IEnumerator DrainWhenReady()
+    {
+        yield return null;
+
         if (inventory == null)
-        {
             inventory = GetComponent<PlayerInventory>();
-        }
 
         if (inventory == null)
-        {
             inventory = FindObjectOfType<PlayerInventory>();
-        }
 
-        PendingPickups.Drain(inventory);
+        if (inventory != null)
+            PendingPickups.Drain(inventory);
     }
 }

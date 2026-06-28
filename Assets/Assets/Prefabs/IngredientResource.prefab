@@ -70,4 +70,6 @@ MonoBehaviour:
   targetInventory: {fileID: 0}
   pickupCooldown: 0.3
   autoBuildVisual: 1
+  colliderPadding: 0.2
+  minColliderWorldSize: 0.4
   builtIngredient: {fileID: 0}

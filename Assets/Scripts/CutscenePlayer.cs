@@ -4,40 +4,26 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.Video;
-using UnityEngine.SceneManagement;
+using StarterAssets;
+#if ENABLE_INPUT_SYSTEM
+using UnityEngine.InputSystem;
+#endif
 
 /// <summary>
 /// Her sahneye dönüşte farklı bir bölümün cutscene'ini oynatır.
-/// Her bölümün kendi slaytları, altyazıları ve müziği vardır.
-/// Bölüm ilerlemesi PlayerPrefs ile kaydedilir.
-///
-/// Kurulum:
-///   1. Sahneye boş bir GameObject ekleyin ve bu scripti ekleyin.
-///   2. Inspector'dan chapters listesine 6 bölüm ekleyin.
-///   3. Her bölüme kendi slaytlarını, müziğini ve sonraki sahne ayarını girin.
-///   Script gerekli UI bileşenlerini otomatik oluşturur.
+/// Cutscene sırasında oyuncu kontrolü kapatılır; bitince FPS imleci ve hareket geri yüklenir.
 /// </summary>
 public class CutscenePlayer : MonoBehaviour
 {
-    // ─────────────────────────────────────────
-    //  Veri Yapıları
-    // ─────────────────────────────────────────
-
     [Serializable]
     public class Slide
     {
         public enum SlideType { Image, Video }
 
-        [Tooltip("Bu slayt görsel mi yoksa video mu?")]
         public SlideType type = SlideType.Image;
-
-        [Tooltip("Görsel slayt için texture (JPEG/PNG) atayın")]
         public Texture2D image;
-
-        [Tooltip("Video slayt için VideoClip atayın")]
         public VideoClip videoClip;
 
-        [Tooltip("Slaytın altında gösterilecek altyazı (boş bırakılabilir)")]
         [TextArea(2, 5)]
         public string subtitle = "";
     }
@@ -45,61 +31,36 @@ public class CutscenePlayer : MonoBehaviour
     [Serializable]
     public class Chapter
     {
-        [Tooltip("Bölüm adı (Inspector'da kolaylık için)")]
         public string chapterName = "Bölüm";
-
-        [Tooltip("Bu bölümün slaytları")]
         public List<Slide> slides = new List<Slide>();
 
         [Header("Müzik")]
-        [Tooltip("Bu bölümde çalacak müzik (MP3/WAV/OGG)")]
         public AudioClip music;
-
-        [Tooltip("Müzik ses seviyesi (0-1)")]
         [Range(0f, 1f)]
         public float musicVolume = 0.7f;
-
-        [Tooltip("Müzik döngü olarak çalsın mı?")]
         public bool loopMusic = true;
-
-        [Tooltip("Bu bölüm final mi? Final ise ilerleme sıfırlanır.")]
         public bool isFinal = false;
     }
 
-    // ─────────────────────────────────────────
-    //  Inspector Alanları
-    // ─────────────────────────────────────────
-
     [Header("══ Bölümler ══")]
-    [Tooltip("Her sahneye dönüşte sırayla oynatılacak bölümler (6 adet)")]
     [SerializeField] private List<Chapter> chapters = new List<Chapter>();
 
     [Header("══ Geçiş Ayarları ══")]
-    [Tooltip("Slayt fade süresi (saniye)")]
     [SerializeField] private float fadeDuration = 0.3f;
-
-    [Tooltip("Slaytlar arası siyah ekran bekleme süresi (saniye)")]
     [SerializeField] private float blackScreenDuration = 0.5f;
 
     [Header("══ Altyazı Ayarları ══")]
-    [Tooltip("Altyazı yazı boyutu")]
     [SerializeField] private int subtitleFontSize = 32;
-
-    [Tooltip("Altyazı rengi")]
     [SerializeField] private Color subtitleColor = Color.white;
 
     [Header("══ Kayıt Ayarları ══")]
-    [Tooltip("PlayerPrefs anahtarı — birden fazla cutscene varsa farklı isim verin")]
     [SerializeField] private string saveKey = "CutsceneChapter";
-
-    [Tooltip("İşaretlenirse her oynatmada bölüm 0'dan başlar (test için)")]
     [SerializeField] private bool resetProgressOnStart = false;
 
-    // ─────────────────────────────────────────
-    //  Dahili Değişkenler
-    // ─────────────────────────────────────────
+    [Header("══ Video ══")]
+    [Tooltip("Video oynatılamazsa bu süre sonunda otomatik geçilir.")]
+    [SerializeField] private float videoFallbackSeconds = 12f;
 
-    // Otomatik oluşturulan UI
     private Canvas _canvas;
     private CanvasGroup _contentGroup;
     private RawImage _imageDisplay;
@@ -111,35 +72,35 @@ public class CutscenePlayer : MonoBehaviour
     private Text _hintText;
     private Text _chapterTitle;
     private AudioSource _musicSource;
+    private RenderTexture _renderTexture;
 
-    // Durum
     private Chapter _currentChapter;
     private int _currentSlideIndex = -1;
     private bool _isTransitioning;
     private bool _isFinished;
-    private bool _inputReady; // İlk slayt gösterilene kadar input kabul etme
-    private RenderTexture _renderTexture;
+    private bool _inputReady;
+    private bool _waitingForVideoEnd;
+    private Coroutine _videoSlideCoroutine;
 
-    // ═══════════════════════════════════════════
-    //  Yaşam Döngüsü
-    // ═══════════════════════════════════════════
+    private readonly List<Behaviour> _disabledDuringCutscene = new List<Behaviour>();
+#if ENABLE_INPUT_SYSTEM
+    private readonly List<PlayerInput> _deactivatedPlayerInputs = new List<PlayerInput>();
+#endif
 
     private void Awake()
     {
         CreateUI();
+        HookVideoEvents();
     }
 
     private void Start()
     {
-        Cursor.visible = true;
-        Cursor.lockState = CursorLockMode.None;
+        SetGameplayInputEnabled(false);
 
         if (resetProgressOnStart)
             PlayerPrefs.SetInt(saveKey, 0);
 
         int chapterIndex = PlayerPrefs.GetInt(saveKey, 0);
-
-        // Tüm bölümler bittiyse ilk bölüme dön veya sahneyi atla
         if (chapterIndex >= chapters.Count)
         {
             chapterIndex = 0;
@@ -156,24 +117,18 @@ public class CutscenePlayer : MonoBehaviour
         _currentChapter = chapters[chapterIndex];
         Debug.Log($"[CutscenePlayer] Bölüm {chapterIndex + 1}/{chapters.Count}: {_currentChapter.chapterName}");
 
-        // Sonraki sefer için bölümü ilerlet
         int nextChapter = chapterIndex + 1;
         if (_currentChapter.isFinal)
-            nextChapter = 0; // Final ise sıfırla
+            nextChapter = 0;
         PlayerPrefs.SetInt(saveKey, nextChapter);
         PlayerPrefs.Save();
 
-        // Müzik başlat
         StartMusic(_currentChapter);
 
         if (_currentChapter.slides.Count > 0)
-        {
             StartCoroutine(ShowFirstSlide());
-        }
         else
-        {
             FinishCutscene(_currentChapter);
-        }
     }
 
     private IEnumerator ShowFirstSlide()
@@ -182,7 +137,6 @@ public class CutscenePlayer : MonoBehaviour
         _inputReady = false;
         _contentGroup.alpha = 0f;
 
-        // Bölüm başlığını göster
         ShowChapterTitle(_currentChapter.chapterName);
         yield return new WaitForSeconds(1.5f);
         HideChapterTitle();
@@ -190,8 +144,6 @@ public class CutscenePlayer : MonoBehaviour
 
         ShowSlide(0);
         yield return StartCoroutine(FadeContent(0f, 1f));
-
-        // Kısa bekleme — önceki sahneden kalan input'u yoksay
         yield return new WaitForSeconds(0.3f);
 
         _isTransitioning = false;
@@ -200,40 +152,81 @@ public class CutscenePlayer : MonoBehaviour
 
     private void Update()
     {
-        if (_isFinished) return;
+        if (_isFinished)
+            return;
 
         Cursor.visible = true;
         Cursor.lockState = CursorLockMode.None;
 
-        // Input hazır değilse veya geçiş sırasındaysa tıklamayı yoksay
-        if (!_inputReady || _isTransitioning) return;
+        if (!_inputReady || _isTransitioning)
+            return;
 
-        if (Input.GetMouseButtonDown(0) || Input.anyKeyDown)
+        if (IsSkipCutscenePressed())
         {
-            NextSlide();
+            StartCoroutine(SkipEntireCutscene());
+            return;
         }
+
+        if (_waitingForVideoEnd)
+            return;
+
+        if (IsAdvanceSlidePressed())
+            NextSlide();
+    }
+
+    private static bool IsAdvanceSlidePressed()
+    {
+        if (Input.GetMouseButtonDown(0))
+            return true;
+
+        return Input.GetKeyDown(KeyCode.Space)
+            || Input.GetKeyDown(KeyCode.Return)
+            || Input.GetKeyDown(KeyCode.KeypadEnter);
+    }
+
+    private static bool IsSkipCutscenePressed()
+    {
+        return Input.GetKeyDown(KeyCode.Escape);
     }
 
     private void OnDestroy()
     {
+        if (_videoPlayer != null)
+            _videoPlayer.errorReceived -= OnVideoError;
+
         if (_renderTexture != null)
         {
             _renderTexture.Release();
             Destroy(_renderTexture);
         }
+
         if (_canvas != null)
-        {
             Destroy(_canvas.gameObject);
-        }
+
+        if (!_isFinished)
+            SetGameplayInputEnabled(true);
     }
 
-    // ═══════════════════════════════════════════
-    //  Müzik
-    // ═══════════════════════════════════════════
+    private void HookVideoEvents()
+    {
+        if (_videoPlayer == null)
+            return;
+
+        _videoPlayer.errorReceived += OnVideoError;
+    }
+
+    private void OnVideoError(VideoPlayer source, string message)
+    {
+        Debug.LogWarning($"[CutscenePlayer] Video oynatma hatası, slayt atlanıyor: {message}");
+        StopVideoSlideRoutine();
+        if (!_isFinished && !_isTransitioning && _inputReady)
+            NextSlide();
+    }
 
     private void StartMusic(Chapter chapter)
     {
-        if (chapter.music == null) return;
+        if (chapter.music == null)
+            return;
 
         _musicSource = gameObject.AddComponent<AudioSource>();
         _musicSource.clip = chapter.music;
@@ -245,7 +238,8 @@ public class CutscenePlayer : MonoBehaviour
 
     private IEnumerator FadeOutMusic(float duration)
     {
-        if (_musicSource == null || !_musicSource.isPlaying) yield break;
+        if (_musicSource == null || !_musicSource.isPlaying)
+            yield break;
 
         float startVol = _musicSource.volume;
         float elapsed = 0f;
@@ -261,13 +255,8 @@ public class CutscenePlayer : MonoBehaviour
         _musicSource.volume = 0f;
     }
 
-    // ═══════════════════════════════════════════
-    //  UI Oluşturma
-    // ═══════════════════════════════════════════
-
     private void CreateUI()
     {
-        // Canvas — root seviyede
         GameObject canvasObj = new GameObject("CutsceneCanvas");
         _canvas = canvasObj.AddComponent<Canvas>();
         _canvas.renderMode = RenderMode.ScreenSpaceOverlay;
@@ -277,24 +266,20 @@ public class CutscenePlayer : MonoBehaviour
         scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
         scaler.referenceResolution = new Vector2(1920, 1080);
         scaler.matchWidthOrHeight = 0.5f;
-
         canvasObj.AddComponent<GraphicRaycaster>();
 
-        // ── Siyah arka plan ──
         GameObject bgObj = new GameObject("Background");
         bgObj.transform.SetParent(canvasObj.transform, false);
         _background = bgObj.AddComponent<Image>();
         _background.color = Color.black;
         SetFullStretch(bgObj.GetComponent<RectTransform>());
 
-        // ── İçerik grubu (fade edilecek) ──
         GameObject contentObj = new GameObject("Content");
         contentObj.transform.SetParent(canvasObj.transform, false);
         SetFullStretch(contentObj.AddComponent<RectTransform>());
         _contentGroup = contentObj.AddComponent<CanvasGroup>();
         _contentGroup.alpha = 0f;
 
-        // Görsel gösterici
         GameObject imgObj = new GameObject("ImageDisplay");
         imgObj.transform.SetParent(contentObj.transform, false);
         _imageDisplay = imgObj.AddComponent<RawImage>();
@@ -302,7 +287,6 @@ public class CutscenePlayer : MonoBehaviour
         SetFullStretch(imgObj.GetComponent<RectTransform>());
         imgObj.SetActive(false);
 
-        // Video gösterici
         GameObject vidObj = new GameObject("VideoDisplay");
         vidObj.transform.SetParent(contentObj.transform, false);
         _videoDisplay = vidObj.AddComponent<RawImage>();
@@ -310,7 +294,6 @@ public class CutscenePlayer : MonoBehaviour
         SetFullStretch(vidObj.GetComponent<RectTransform>());
         vidObj.SetActive(false);
 
-        // ── Altyazı arka planı ──
         GameObject subBgObj = new GameObject("SubtitleBackground");
         subBgObj.transform.SetParent(contentObj.transform, false);
         _subtitleBg = subBgObj.AddComponent<Image>();
@@ -324,7 +307,6 @@ public class CutscenePlayer : MonoBehaviour
         subBgRect.sizeDelta = new Vector2(0, 120);
         subBgObj.SetActive(false);
 
-        // ── Altyazı metni ──
         GameObject subObj = new GameObject("SubtitleText");
         subObj.transform.SetParent(subBgObj.transform, false);
         _subtitleText = subObj.AddComponent<Text>();
@@ -345,7 +327,6 @@ public class CutscenePlayer : MonoBehaviour
         subRect.offsetMin = new Vector2(40, 10);
         subRect.offsetMax = new Vector2(-40, -10);
 
-        // ── Bölüm başlığı (ortada büyük yazı) ──
         GameObject titleObj = new GameObject("ChapterTitle");
         titleObj.transform.SetParent(canvasObj.transform, false);
         _chapterTitle = titleObj.AddComponent<Text>();
@@ -359,24 +340,22 @@ public class CutscenePlayer : MonoBehaviour
         Shadow titleShadow = titleObj.AddComponent<Shadow>();
         titleShadow.effectColor = new Color(0, 0, 0, 0.9f);
         titleShadow.effectDistance = new Vector2(3, -3);
-
         titleObj.SetActive(false);
 
-        // ── VideoPlayer ──
         _videoPlayer = gameObject.AddComponent<VideoPlayer>();
         _videoPlayer.playOnAwake = false;
         _videoPlayer.isLooping = false;
         _videoPlayer.renderMode = VideoRenderMode.RenderTexture;
+        _videoPlayer.audioOutputMode = VideoAudioOutputMode.Direct;
 
         _renderTexture = new RenderTexture(1920, 1080, 0);
         _videoPlayer.targetTexture = _renderTexture;
         _videoDisplay.texture = _renderTexture;
 
-        // ── İpucu yazısı ──
         GameObject hintObj = new GameObject("ClickHint");
         hintObj.transform.SetParent(canvasObj.transform, false);
         _hintText = hintObj.AddComponent<Text>();
-        _hintText.text = "Devam etmek için tıklayın...";
+        _hintText.text = "Devam: tıkla / Space  |  Atla: Esc";
         _hintText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
         _hintText.fontSize = 22;
         _hintText.color = new Color(1f, 1f, 1f, 0.5f);
@@ -394,13 +373,11 @@ public class CutscenePlayer : MonoBehaviour
         rect.offsetMax = Vector2.zero;
     }
 
-    // ═══════════════════════════════════════════
-    //  Bölüm Başlığı
-    // ═══════════════════════════════════════════
-
     private void ShowChapterTitle(string title)
     {
-        if (_chapterTitle == null || string.IsNullOrEmpty(title)) return;
+        if (_chapterTitle == null || string.IsNullOrEmpty(title))
+            return;
+
         _chapterTitle.text = title;
         _chapterTitle.gameObject.SetActive(true);
     }
@@ -411,36 +388,38 @@ public class CutscenePlayer : MonoBehaviour
             _chapterTitle.gameObject.SetActive(false);
     }
 
-    // ═══════════════════════════════════════════
-    //  Slayt Yönetimi
-    // ═══════════════════════════════════════════
-
     private void ShowSlide(int index)
     {
+        StopVideoSlideRoutine();
         _currentSlideIndex = index;
         Slide slide = _currentChapter.slides[index];
 
         if (slide.type == Slide.SlideType.Image)
         {
-            if (_videoPlayer != null) _videoPlayer.Stop();
-            _videoDisplay.gameObject.SetActive(false);
+            if (_videoPlayer != null)
+                _videoPlayer.Stop();
 
+            _videoDisplay.gameObject.SetActive(false);
             _imageDisplay.texture = slide.image;
             _imageDisplay.gameObject.SetActive(true);
+            _waitingForVideoEnd = false;
         }
-        else // Video
+        else
         {
             _imageDisplay.gameObject.SetActive(false);
-
             _videoDisplay.gameObject.SetActive(true);
+
             if (slide.videoClip != null)
             {
-                _videoPlayer.clip = slide.videoClip;
-                _videoPlayer.Play();
+                _waitingForVideoEnd = true;
+                _videoSlideCoroutine = StartCoroutine(PlayVideoSlide(slide.videoClip));
+            }
+            else
+            {
+                _waitingForVideoEnd = false;
             }
         }
 
-        // Altyazı
         if (!string.IsNullOrEmpty(slide.subtitle))
         {
             _subtitleText.text = slide.subtitle;
@@ -452,55 +431,110 @@ public class CutscenePlayer : MonoBehaviour
         }
     }
 
+    private IEnumerator PlayVideoSlide(VideoClip clip)
+    {
+        _videoPlayer.Stop();
+        _videoPlayer.clip = clip;
+        _videoPlayer.Prepare();
+
+        float prepareTimeout = 3f;
+        float prepareElapsed = 0f;
+        while (!_videoPlayer.isPrepared && prepareElapsed < prepareTimeout)
+        {
+            prepareElapsed += Time.unscaledDeltaTime;
+            yield return null;
+        }
+
+        if (!_videoPlayer.isPrepared)
+        {
+            Debug.LogWarning($"[CutscenePlayer] Video hazırlanamadı, slayt atlanıyor: {clip.name}");
+            _waitingForVideoEnd = false;
+            if (!_isFinished && !_isTransitioning && _inputReady)
+                NextSlide();
+            yield break;
+        }
+
+        _videoPlayer.Play();
+
+        float duration = clip.length > 0.1f ? (float)clip.length + 1f : videoFallbackSeconds;
+        float timeout = Mathf.Clamp(duration, 2f, Mathf.Max(videoFallbackSeconds, duration));
+        float elapsed = 0f;
+
+        while (elapsed < timeout)
+        {
+            if (!_videoPlayer.isPlaying && elapsed > 0.15f)
+                break;
+
+            elapsed += Time.unscaledDeltaTime;
+            yield return null;
+        }
+
+        if (_waitingForVideoEnd && !_isFinished && !_isTransitioning && _inputReady)
+        {
+            _waitingForVideoEnd = false;
+            NextSlide();
+        }
+    }
+
+    private void StopVideoSlideRoutine()
+    {
+        _waitingForVideoEnd = false;
+
+        if (_videoSlideCoroutine != null)
+        {
+            StopCoroutine(_videoSlideCoroutine);
+            _videoSlideCoroutine = null;
+        }
+
+        if (_videoPlayer != null && _videoPlayer.isPlaying)
+            _videoPlayer.Stop();
+    }
+
     private void NextSlide()
     {
         int nextIndex = _currentSlideIndex + 1;
 
         if (nextIndex < _currentChapter.slides.Count)
-        {
             StartCoroutine(TransitionToSlide(nextIndex));
-        }
         else
-        {
             StartCoroutine(EndCutsceneCoroutine());
-        }
     }
-
-    // ═══════════════════════════════════════════
-    //  Geçiş Animasyonları
-    // ═══════════════════════════════════════════
 
     private IEnumerator TransitionToSlide(int index)
     {
         _isTransitioning = true;
+        StopVideoSlideRoutine();
 
-        // 1) Fade out → siyah ekran
         yield return StartCoroutine(FadeContent(1f, 0f));
-
-        // 2) Siyah ekranda bekle
         yield return new WaitForSeconds(blackScreenDuration);
 
-        // 3) Yeni slaytı yükle ve fade in
         ShowSlide(index);
         yield return StartCoroutine(FadeContent(0f, 1f));
 
         _isTransitioning = false;
     }
 
+    private IEnumerator SkipEntireCutscene()
+    {
+        if (_isFinished || _isTransitioning)
+            yield break;
+
+        _isTransitioning = true;
+        StopVideoSlideRoutine();
+        yield return StartCoroutine(EndCutsceneCoroutine());
+    }
+
     private IEnumerator EndCutsceneCoroutine()
     {
         _isTransitioning = true;
         _isFinished = true;
+        StopVideoSlideRoutine();
 
-        // Müzik ve içerik fade out
         StartCoroutine(FadeOutMusic(fadeDuration + blackScreenDuration));
         yield return StartCoroutine(FadeContent(1f, 0f));
         yield return new WaitForSeconds(blackScreenDuration);
 
-        if (_videoPlayer != null) _videoPlayer.Stop();
-
-        // Final bölümüyse özel mesaj göster
-        if (_currentChapter.isFinal)
+        if (_currentChapter != null && _currentChapter.isFinal)
         {
             ShowChapterTitle("FIN");
             yield return new WaitForSeconds(2f);
@@ -513,7 +547,8 @@ public class CutscenePlayer : MonoBehaviour
 
     private IEnumerator FadeContent(float from, float to)
     {
-        if (_contentGroup == null) yield break;
+        if (_contentGroup == null)
+            yield break;
 
         float elapsed = 0f;
         _contentGroup.alpha = from;
@@ -529,26 +564,162 @@ public class CutscenePlayer : MonoBehaviour
         _contentGroup.alpha = to;
     }
 
-    // ═══════════════════════════════════════════
-    //  Bitiş
-    // ═══════════════════════════════════════════
-
     private void FinishCutscene(Chapter chapter)
     {
         _isFinished = true;
+        StopVideoSlideRoutine();
 
-        // Sahne değiştirme — sadece cutscene panelini kapat, aynı sahnede kal
         if (_canvas != null)
             _canvas.gameObject.SetActive(false);
+
+        SetGameplayInputEnabled(true);
+        StartCoroutine(EnsureGameplayInputRestored());
+        Debug.Log("[CutscenePlayer] Cutscene bitti, oyuncu kontrolü geri yüklendi.");
     }
 
-    // ═══════════════════════════════════════════
-    //  Debug — İlerlemeyi Sıfırla (Inspector'dan çağrılabilir)
-    // ═══════════════════════════════════════════
+    private IEnumerator EnsureGameplayInputRestored()
+    {
+        yield return null;
+        SetGameplayInputEnabled(true);
+    }
 
-    /// <summary>
-    /// Bölüm ilerlemesini sıfırlar. Test için kullanışlıdır.
-    /// </summary>
+    private void SetGameplayInputEnabled(bool enabled)
+    {
+        GameObject player = GameObject.FindGameObjectWithTag("Player");
+
+        if (!enabled)
+        {
+            _disabledDuringCutscene.Clear();
+#if ENABLE_INPUT_SYSTEM
+            _deactivatedPlayerInputs.Clear();
+#endif
+
+            if (player == null)
+                return;
+
+            ClearPlayerInputState(player);
+            DisableIfEnabled<FirstPersonController>(player);
+            DisableIfEnabled<ThirdPersonController>(player);
+#if ENABLE_INPUT_SYSTEM
+            DeactivatePlayerInputs(player);
+#endif
+            return;
+        }
+
+        for (int i = 0; i < _disabledDuringCutscene.Count; i++)
+        {
+            if (_disabledDuringCutscene[i] != null)
+                _disabledDuringCutscene[i].enabled = true;
+        }
+
+        _disabledDuringCutscene.Clear();
+
+        if (player != null)
+            ClearPlayerInputState(player);
+
+#if ENABLE_INPUT_SYSTEM
+        ActivatePlayerInputs(player);
+#endif
+
+        RestoreGameplayCursor();
+        SceneCameraBootstrap.ConfigureSceneCameras();
+    }
+
+    private static void ClearPlayerInputState(GameObject player)
+    {
+        StarterAssetsInputs inputs = player.GetComponentInChildren<StarterAssetsInputs>(true);
+        if (inputs == null)
+            return;
+
+        inputs.move = Vector2.zero;
+        inputs.look = Vector2.zero;
+        inputs.jump = false;
+        inputs.sprint = false;
+    }
+
+#if ENABLE_INPUT_SYSTEM
+    private void DeactivatePlayerInputs(GameObject player)
+    {
+        PlayerInput[] playerInputs = player.GetComponentsInChildren<PlayerInput>(true);
+        for (int i = 0; i < playerInputs.Length; i++)
+        {
+            PlayerInput playerInput = playerInputs[i];
+            if (!playerInput.inputIsActive)
+                continue;
+
+            playerInput.DeactivateInput();
+            _deactivatedPlayerInputs.Add(playerInput);
+        }
+    }
+
+    private void ActivatePlayerInputs(GameObject player)
+    {
+        if (player != null)
+        {
+            PlayerInput[] playerInputs = player.GetComponentsInChildren<PlayerInput>(true);
+            for (int i = 0; i < playerInputs.Length; i++)
+                ActivatePlayerInput(playerInputs[i]);
+        }
+
+        for (int i = 0; i < _deactivatedPlayerInputs.Count; i++)
+        {
+            if (_deactivatedPlayerInputs[i] != null)
+                ActivatePlayerInput(_deactivatedPlayerInputs[i]);
+        }
+
+        _deactivatedPlayerInputs.Clear();
+    }
+
+    private static void ActivatePlayerInput(PlayerInput playerInput)
+    {
+        if (playerInput == null)
+            return;
+
+        playerInput.enabled = true;
+        if (!playerInput.inputIsActive)
+            playerInput.ActivateInput();
+    }
+#endif
+
+    private void DisableIfEnabled<T>(GameObject root) where T : Behaviour
+    {
+        T[] components = root.GetComponentsInChildren<T>(true);
+        for (int i = 0; i < components.Length; i++)
+        {
+            if (!components[i].enabled)
+                continue;
+
+            components[i].enabled = false;
+            _disabledDuringCutscene.Add(components[i]);
+        }
+    }
+
+    private static void RestoreGameplayCursor()
+    {
+        SceneCursorState cursorState = FindObjectOfType<SceneCursorState>();
+        if (cursorState != null)
+            cursorState.ApplyCursorState();
+        else
+            ApplyFallbackCursorLock();
+    }
+
+    private static void ApplyFallbackCursorLock()
+    {
+        GameObject player = GameObject.FindGameObjectWithTag("Player");
+        if (player == null)
+            return;
+
+        StarterAssetsInputs inputs = player.GetComponentInChildren<StarterAssetsInputs>(true);
+        if (inputs != null)
+        {
+            inputs.cursorLocked = true;
+            inputs.cursorInputForLook = true;
+        }
+
+        Cursor.lockState = CursorLockMode.Locked;
+        Cursor.visible = false;
+    }
+
     [ContextMenu("İlerlemeyi Sıfırla")]
     public void ResetProgress()
     {

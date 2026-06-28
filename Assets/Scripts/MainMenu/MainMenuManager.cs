@@ -44,7 +44,7 @@ namespace Summerjam.MainMenu
         [SerializeField] private float panelTransitionDuration = 0.4f;
 
         [Header("Sahne Ayarları")]
-        [SerializeField] private string gameSceneName = "Scene 1";
+        [SerializeField] private string gameSceneName = "Anasahne";
 
         // Buton referansları (animasyon için)
         private Button[] _menuButtons;
@@ -234,7 +234,7 @@ namespace Summerjam.MainMenu
             PlayerPrefs.Save();
 
             if (SceneLoader.Instance != null)
-                SceneLoader.Instance.LoadScene(1);
+                SceneLoader.Instance.LoadScene(gameSceneName);
         }
 
         #endregion

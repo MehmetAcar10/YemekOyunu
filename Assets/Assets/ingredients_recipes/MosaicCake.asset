@@ -24,7 +24,7 @@ MonoBehaviour:
   resultPrefab: {fileID: 919132149155446097, guid: b196c67143ac8f743a321a21bbf9da85,
     type: 3}
   resultInventoryItem: {fileID: 0}
-  slimInventoryItem: {fileID: 0}
+  slimInventoryItem: {fileID: 11400000, guid: d0f1e0d837cd4c7459d05150124ee695, type: 2}
   isMainRecipe: 0
   isFallback: 0
   priority: 0

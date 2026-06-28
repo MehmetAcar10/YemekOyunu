@@ -111,6 +111,22 @@ public class PlayerInventory : MonoBehaviour
     OnSelectionChanged?.Invoke();
   }
 
+  public void SelectIngredient(IngredientSO ingredient)
+  {
+    if (ingredient == null)
+      return;
+
+    for (int i = 0; i < SlotCount; i++)
+    {
+      if (slots[i] != ingredient)
+        continue;
+
+      SelectedSlotIndex = i;
+      OnSelectionChanged?.Invoke();
+      return;
+    }
+  }
+
   private void AdvanceToNextFilledSlot()
   {
     int start = SelectedSlotIndex;

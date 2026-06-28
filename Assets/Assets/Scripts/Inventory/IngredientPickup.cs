@@ -1,15 +1,15 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
 
 /// <summary>
 /// Sahnedeki toplanabilir 3D malzeme. Bir IngredientSO atandiginda onun
 /// visualPrefab modelini otomatik olarak "Visual" adli alt nesne olarak olusturur
-/// ve BoxCollider'i modele gore boyutlandirir (editorde de calisir).
+/// ve BoxCollider'i modele gore boyutlandirir (yalnizca editorde, gerektiginde).
 /// Toplama sirasinda nesne YOK EDILMEZ (sonsuz kaynak); cooldown ile sinirlanir.
-/// Hem fareyle tiklama (OnMouseDown) hem yaklas+E (IngredientPickupByKey) ayni
-/// TryCollect mantigini kullanir.
+/// Toplama yalnizca fare sol tik ile yapilir (OnMouseDown).
+/// Toplama sirasinda nesne YOK EDILMEZ (sonsuz kaynak); cooldown ile sinirlanir.
 /// </summary>
-[ExecuteAlways]
 [RequireComponent(typeof(Collider))]
 public class IngredientPickup : MonoBehaviour
 {
@@ -24,12 +24,34 @@ public class IngredientPickup : MonoBehaviour
   [Tooltip("Ingredient atandiginda 3D modeli (visualPrefab) otomatik olustur ve collider'i ona gore boyutlandir.")]
   [SerializeField] private bool autoBuildVisual = true;
 
+  [Tooltip("Collider'in gorsel sinirlardan ne kadar buyuk olacagi (world birim).")]
+  [SerializeField] private float colliderPadding = 0.2f;
+
+  [Tooltip("Collider'in minimum world boyutu (kucuk modeller icin).")]
+  [SerializeField] private float minColliderWorldSize = 0.4f;
+
   // Halihazirda gorseli kurulu olan malzeme. Degisince model yeniden olusturulur.
   [SerializeField, HideInInspector] private IngredientSO builtIngredient;
 
   private float lastPickupTime = -999f;
 
+#if UNITY_EDITOR
+  private static bool suppressOnValidate;
+  private static readonly HashSet<int> scheduledEditorBuilds = new HashSet<int>();
+  private static readonly HashSet<int> scheduledEditorColliderRefits = new HashSet<int>();
+  private IngredientSO editorPreviousIngredient;
+#endif
+
   public IngredientSO GetIngredient() => ingredient;
+
+  /// <summary>
+  /// BoxCollider'i mevcut Visual modelinin sinirlarina gore yeniden boyutlandirir.
+  /// </summary>
+  public void RefitColliderFromVisual()
+  {
+    Physics.SyncTransforms();
+    RefreshColliderFromVisual();
+  }
 
   private void Awake()
   {
@@ -43,6 +65,14 @@ public class IngredientPickup : MonoBehaviour
       EnsureVisual();
   }
 
+  private void Start()
+  {
+    if (!Application.isPlaying)
+      return;
+
+    RefreshColliderFromVisual();
+  }
+
   private void Reset()
   {
     Collider collider = GetComponent<Collider>();
@@ -53,11 +83,45 @@ public class IngredientPickup : MonoBehaviour
 #if UNITY_EDITOR
   private void OnValidate()
   {
-    if (!autoBuildVisual || Application.isPlaying)
+    if (suppressOnValidate || !autoBuildVisual || Application.isPlaying)
       return;
 
-    // OnValidate sirasinda Instantiate/Destroy guvenli degil; bir frame ertele.
-    UnityEditor.EditorApplication.delayCall += EditorDeferredBuild;
+    bool ingredientChangedInEditor = editorPreviousIngredient != null
+      && editorPreviousIngredient != ingredient;
+    editorPreviousIngredient = ingredient;
+
+    Transform visual = FindVisualChild();
+    if (visual != null && builtIngredient == null && ingredient != null && !ingredientChangedInEditor)
+    {
+      builtIngredient = ingredient;
+      UnityEditor.EditorUtility.SetDirty(this);
+      ScheduleEditorColliderRefit();
+      return;
+    }
+
+    if (!NeedsVisualRebuild())
+    {
+      ScheduleEditorColliderRefit();
+      return;
+    }
+
+    ScheduleEditorBuild();
+  }
+
+  private void ScheduleEditorBuild()
+  {
+    int instanceId = GetInstanceID();
+    if (!scheduledEditorBuilds.Add(instanceId))
+      return;
+
+    UnityEditor.EditorApplication.delayCall += () =>
+    {
+      scheduledEditorBuilds.Remove(instanceId);
+      if (this == null)
+        return;
+
+      EditorDeferredBuild();
+    };
   }
 
   private void EditorDeferredBuild()
@@ -66,6 +130,23 @@ public class IngredientPickup : MonoBehaviour
       return;
 
     EnsureVisual();
+  }
+
+  private void ScheduleEditorColliderRefit()
+  {
+    int instanceId = GetInstanceID();
+    if (!scheduledEditorColliderRefits.Add(instanceId))
+      return;
+
+    UnityEditor.EditorApplication.delayCall += () =>
+    {
+      scheduledEditorColliderRefits.Remove(instanceId);
+      if (this == null || Application.isPlaying)
+        return;
+
+      RefitColliderFromVisual();
+      UnityEditor.EditorUtility.SetDirty(this);
+    };
   }
 #endif
 
@@ -78,6 +159,29 @@ public class IngredientPickup : MonoBehaviour
       return;
 
     TryCollect(targetInventory);
+  }
+
+  private void RefreshColliderFromVisual()
+  {
+    Transform visual = FindVisualChild();
+    if (visual == null)
+      return;
+
+    SceneCameraBootstrap.DisableEmbeddedCameras(visual.gameObject);
+    DisableExtraneousColliders();
+    FitCollider(visual.gameObject);
+  }
+
+  private void DisableExtraneousColliders()
+  {
+    Collider ownCollider = GetComponent<Collider>();
+    Collider[] colliders = GetComponentsInChildren<Collider>(true);
+    for (int i = 0; i < colliders.Length; i++)
+    {
+      Collider collider = colliders[i];
+      if (collider != null && collider != ownCollider)
+        collider.enabled = false;
+    }
   }
 
   /// <summary>
@@ -118,8 +222,17 @@ public class IngredientPickup : MonoBehaviour
   /// </summary>
   public void EnsureVisual()
   {
-    if (ingredient == builtIngredient && FindVisualChild() != null)
+    if (!NeedsVisualRebuild())
+    {
+      AdoptExistingVisualIfNeeded();
+#if UNITY_EDITOR
+      if (!Application.isPlaying)
+        ScheduleEditorColliderRefit();
+      else
+#endif
+        RefitColliderFromVisual();
       return;
+    }
 
     RemoveExistingVisual();
     builtIngredient = ingredient;
@@ -136,7 +249,53 @@ public class IngredientPickup : MonoBehaviour
     visual.transform.localPosition = Vector3.zero;
     visual.transform.localRotation = Quaternion.identity;
 
+    SceneCameraBootstrap.DisableEmbeddedCameras(visual);
+    DisableExtraneousColliders();
     FitCollider(visual);
+  }
+
+  private bool NeedsVisualRebuild()
+  {
+    Transform visual = FindVisualChild();
+
+    if (ingredient == null)
+      return visual != null;
+
+    if (visual == null)
+      return true;
+
+    if (builtIngredient == ingredient)
+      return false;
+
+    // Prefab/sahne instance'larinda builtIngredient kaydedilmemis olabilir;
+    // mevcut Visual varsa gereksiz yikim/onarim dongusune girmeyelim.
+    if (builtIngredient == null)
+      return false;
+
+    return builtIngredient != ingredient;
+  }
+
+  private void AdoptExistingVisualIfNeeded()
+  {
+    if (ingredient == null)
+    {
+      builtIngredient = null;
+      return;
+    }
+
+    if (FindVisualChild() == null || builtIngredient == ingredient)
+      return;
+
+    builtIngredient = ingredient;
+
+#if UNITY_EDITOR
+    if (!Application.isPlaying)
+      UnityEditor.EditorUtility.SetDirty(this);
+#endif
+
+    Transform visual = FindVisualChild();
+    if (visual != null)
+      SceneCameraBootstrap.DisableEmbeddedCameras(visual.gameObject);
   }
 
   private GameObject InstantiateVisual(GameObject prefab)
@@ -154,7 +313,21 @@ public class IngredientPickup : MonoBehaviour
 
   private Transform FindVisualChild()
   {
-    return transform.Find(VisualChildName);
+    Transform visual = transform.Find(VisualChildName);
+    if (visual != null)
+      return visual;
+
+    for (int i = 0; i < transform.childCount; i++)
+    {
+      Transform child = transform.GetChild(i);
+      if (child.name == InteractZoneUtility.InteractZoneObjectName)
+        continue;
+
+      if (child.GetComponentInChildren<Renderer>(true) != null)
+        return child;
+    }
+
+    return null;
   }
 
   private void RemoveExistingVisual()
@@ -177,20 +350,81 @@ public class IngredientPickup : MonoBehaviour
     if (box == null)
       return;
 
-    Renderer[] renderers = visual.GetComponentsInChildren<Renderer>();
+    Renderer[] renderers = visual.GetComponentsInChildren<Renderer>(true);
     if (renderers.Length == 0)
+      renderers = GetComponentsInChildren<Renderer>(true);
+
+    FitColliderToRenderers(renderers);
+  }
+
+  private void FitColliderToRenderers(Renderer[] renderers)
+  {
+    BoxCollider box = GetComponent<Collider>() as BoxCollider;
+    if (box == null || renderers == null || renderers.Length == 0)
       return;
 
-    Bounds worldBounds = renderers[0].bounds;
-    for (int i = 1; i < renderers.Length; i++)
-      worldBounds.Encapsulate(renderers[i].bounds);
+    bool hasBounds = false;
+    Bounds worldBounds = default;
+    for (int i = 0; i < renderers.Length; i++)
+    {
+      Renderer renderer = renderers[i];
+      if (renderer == null || !renderer.enabled || renderer.gameObject == gameObject)
+        continue;
+
+      if (!hasBounds)
+      {
+        worldBounds = renderer.bounds;
+        hasBounds = true;
+      }
+      else
+      {
+        worldBounds.Encapsulate(renderer.bounds);
+      }
+    }
+
+    if (!hasBounds)
+      return;
+
+    worldBounds.Expand(colliderPadding);
 
     Vector3 scale = transform.lossyScale;
-    box.center = transform.InverseTransformPoint(worldBounds.center);
-    box.size = new Vector3(
+    Vector3 newCenter = transform.InverseTransformPoint(worldBounds.center);
+    Vector3 newSize = new Vector3(
       Mathf.Abs(worldBounds.size.x / Mathf.Max(0.0001f, scale.x)),
       Mathf.Abs(worldBounds.size.y / Mathf.Max(0.0001f, scale.y)),
       Mathf.Abs(worldBounds.size.z / Mathf.Max(0.0001f, scale.z)));
+
+    float minLocalSize = minColliderWorldSize / Mathf.Max(0.0001f, Mathf.Max(scale.x, Mathf.Max(scale.y, scale.z)));
+    newSize.x = Mathf.Max(newSize.x, minLocalSize);
+    newSize.y = Mathf.Max(newSize.y, minLocalSize);
+    newSize.z = Mathf.Max(newSize.z, minLocalSize);
+
+    if (Approximately(box.center, newCenter) && Approximately(box.size, newSize))
+      return;
+
+#if UNITY_EDITOR
+    suppressOnValidate = true;
+    try
+    {
+      UnityEditor.Undo.RecordObject(box, "Fit Ingredient Collider");
+      box.center = newCenter;
+      box.size = newSize;
+      box.isTrigger = false;
+      UnityEditor.EditorUtility.SetDirty(box);
+    }
+    finally
+    {
+      suppressOnValidate = false;
+    }
+#else
+    box.center = newCenter;
+    box.size = newSize;
     box.isTrigger = false;
+#endif
+  }
+
+  private static bool Approximately(Vector3 a, Vector3 b)
+  {
+    return (a - b).sqrMagnitude < 0.000001f;
   }
 }

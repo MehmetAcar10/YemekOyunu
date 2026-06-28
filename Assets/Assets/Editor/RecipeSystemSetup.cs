@@ -8,10 +8,14 @@ using UnityEngine.SceneManagement;
 [InitializeOnLoad]
 public static class RecipeSystemSetup
 {
-    private const string RecipesFolder = "Assets/ingredients_recipes";
-    private const string DatabasePath = "Assets/ingredients_recipes/recipe_database.asset";
-    private const string FallbackPath = "Assets/ingredients_recipes/fallback_recipe.asset";
-    private const string ResourcesDatabasePath = "Assets/Resources/recipe_database.asset";
+    private const string PrimaryRecipesFolder = "Assets/Assets/ingredients_recipes";
+    private const string LegacyRecipesFolder = "Assets/ingredients_recipes";
+    private const string PrimaryDatabasePath = "Assets/Assets/ingredients_recipes/recipe_database.asset";
+    private const string LegacyDatabasePath = "Assets/ingredients_recipes/recipe_database.asset";
+    private const string PrimaryFallbackPath = "Assets/Assets/ingredients_recipes/fallback_recipe.asset";
+    private const string LegacyFallbackPath = "Assets/ingredients_recipes/fallback_recipe.asset";
+    private const string PrimaryResourcesDatabasePath = "Assets/Assets/Resources/recipe_database.asset";
+    private const string LegacyResourcesDatabasePath = "Assets/Resources/recipe_database.asset";
 
     private static bool setupWarningLogged;
 
@@ -24,7 +28,7 @@ public static class RecipeSystemSetup
     [MenuItem("SummerJam/Fix Recipe System References")]
     public static void EnsureRecipeSystemConfigured()
     {
-        RecipeSO fallback = AssetDatabase.LoadAssetAtPath<RecipeSO>(FallbackPath);
+        RecipeSO fallback = LoadAssetAtAnyPath<RecipeSO>(PrimaryFallbackPath, LegacyFallbackPath);
         RecipeDatabase database = LoadDatabase();
 
         if (database == null)
@@ -32,8 +36,8 @@ public static class RecipeSystemSetup
             if (!setupWarningLogged)
             {
                 Debug.LogWarning(
-                    $"RecipeSystemSetup: Recipe Database bulunamadi. Beklenen: {DatabasePath} " +
-                    $"(Script tipi RecipeDatabase olmali).");
+                    "RecipeSystemSetup: Recipe Database bulunamadi. Beklenen konumlardan biri: " +
+                    $"{PrimaryDatabasePath} veya {LegacyDatabasePath} (Script tipi RecipeDatabase olmali).");
                 setupWarningLogged = true;
             }
 
@@ -59,17 +63,60 @@ public static class RecipeSystemSetup
 
     private static RecipeDatabase LoadDatabase()
     {
-        RecipeDatabase database = AssetDatabase.LoadAssetAtPath<RecipeDatabase>(DatabasePath);
+        RecipeDatabase database = LoadAssetAtAnyPath<RecipeDatabase>(
+            PrimaryDatabasePath,
+            LegacyDatabasePath,
+            PrimaryResourcesDatabasePath,
+            LegacyResourcesDatabasePath);
         if (database != null)
             return database;
 
-        return AssetDatabase.LoadAssetAtPath<RecipeDatabase>(ResourcesDatabasePath);
+        string[] guids = AssetDatabase.FindAssets("t:RecipeDatabase");
+        foreach (string guid in guids)
+        {
+            string path = AssetDatabase.GUIDToAssetPath(guid);
+            database = AssetDatabase.LoadAssetAtPath<RecipeDatabase>(path);
+            if (database != null)
+                return database;
+        }
+
+        return null;
+    }
+
+    private static string GetRecipesFolder()
+    {
+        if (AssetDatabase.IsValidFolder(PrimaryRecipesFolder))
+            return PrimaryRecipesFolder;
+
+        return LegacyRecipesFolder;
+    }
+
+    private static string GetResourcesDatabasePath()
+    {
+        if (AssetDatabase.LoadAssetAtPath<RecipeDatabase>(PrimaryResourcesDatabasePath) != null
+            || AssetDatabase.IsValidFolder("Assets/Assets/Resources"))
+            return PrimaryResourcesDatabasePath;
+
+        return LegacyResourcesDatabasePath;
+    }
+
+    private static T LoadAssetAtAnyPath<T>(params string[] paths) where T : Object
+    {
+        foreach (string path in paths)
+        {
+            T asset = AssetDatabase.LoadAssetAtPath<T>(path);
+            if (asset != null)
+                return asset;
+        }
+
+        return null;
     }
 
     private static List<RecipeSO> LoadAllGameRecipes()
     {
         List<RecipeSO> recipes = new List<RecipeSO>();
-        string[] guids = AssetDatabase.FindAssets("t:RecipeSO", new[] { RecipesFolder });
+        string recipesFolder = GetRecipesFolder();
+        string[] guids = AssetDatabase.FindAssets("t:RecipeSO", new[] { recipesFolder });
 
         foreach (string guid in guids)
         {
@@ -92,7 +139,7 @@ public static class RecipeSystemSetup
             if (recipe.resultInventoryItem == null && recipe.resultPrefab == null)
                 continue;
 
-            string slimPath = $"{RecipesFolder}/{recipe.name}_slim.asset";
+            string slimPath = $"{GetRecipesFolder()}/{recipe.name}_slim.asset";
             IngredientSO slim = AssetDatabase.LoadAssetAtPath<IngredientSO>(slimPath);
 
             if (slim == null)
@@ -130,14 +177,25 @@ public static class RecipeSystemSetup
 
     private static void EnsureResourcesCopy(RecipeDatabase database)
     {
-        if (!AssetDatabase.IsValidFolder("Assets/Resources"))
-            AssetDatabase.CreateFolder("Assets", "Resources");
+        string resourcesDatabasePath = GetResourcesDatabasePath();
+        string resourcesFolder = System.IO.Path.GetDirectoryName(resourcesDatabasePath)?.Replace('\\', '/');
+        if (string.IsNullOrEmpty(resourcesFolder))
+            return;
 
-        RecipeDatabase resourcesCopy = AssetDatabase.LoadAssetAtPath<RecipeDatabase>(ResourcesDatabasePath);
+        if (!AssetDatabase.IsValidFolder(resourcesFolder))
+        {
+            string parentFolder = System.IO.Path.GetDirectoryName(resourcesFolder)?.Replace('\\', '/');
+            string folderName = System.IO.Path.GetFileName(resourcesFolder);
+            if (!string.IsNullOrEmpty(parentFolder) && !string.IsNullOrEmpty(folderName))
+                AssetDatabase.CreateFolder(parentFolder, folderName);
+        }
+
+        RecipeDatabase resourcesCopy = AssetDatabase.LoadAssetAtPath<RecipeDatabase>(resourcesDatabasePath);
         if (resourcesCopy == null)
         {
-            if (AssetDatabase.CopyAsset(DatabasePath, ResourcesDatabasePath))
-                Debug.Log("RecipeSystemSetup: Resources/recipe_database kopyalandi.");
+            string sourcePath = AssetDatabase.GetAssetPath(database);
+            if (!string.IsNullOrEmpty(sourcePath) && AssetDatabase.CopyAsset(sourcePath, resourcesDatabasePath))
+                Debug.Log($"RecipeSystemSetup: {resourcesDatabasePath} kopyalandi.");
             return;
         }
 

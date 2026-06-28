@@ -35,7 +35,12 @@ public class PlayerInteractionBody : MonoBehaviour
   {
     if (followTarget != null)
     {
-      transform.position = followTarget.position + followOffset;
+      Vector3 worldOffset = followTarget.TransformVector(followOffset);
+      CharacterController controller = followTarget.GetComponent<CharacterController>();
+      if (controller != null)
+        worldOffset += followTarget.TransformVector(controller.center);
+
+      transform.position = followTarget.position + worldOffset;
       return;
     }
 

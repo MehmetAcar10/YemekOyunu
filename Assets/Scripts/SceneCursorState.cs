@@ -1,5 +1,8 @@
 using UnityEngine;
 using StarterAssets;
+#if ENABLE_INPUT_SYSTEM
+using UnityEngine.InputSystem;
+#endif
 
 /// <summary>
 /// Sahne yuklendiginde imleç durumunu uygular. FPS sahnelerinde (Anasahne)
@@ -27,6 +30,11 @@ public class SceneCursorState : MonoBehaviour
             Apply();
     }
 
+    public void ApplyCursorState()
+    {
+        Apply();
+    }
+
     private void Apply()
     {
         Cursor.lockState = lockCursor ? CursorLockMode.Locked : CursorLockMode.None;
@@ -42,6 +50,19 @@ public class SceneCursorState : MonoBehaviour
                 inputs.cursorLocked = lockCursor;
                 inputs.cursorInputForLook = lockCursor;
             }
+
+#if ENABLE_INPUT_SYSTEM
+            if (lockCursor)
+            {
+                var playerInputs = player.GetComponentsInChildren<PlayerInput>(true);
+                for (int i = 0; i < playerInputs.Length; i++)
+                {
+                    playerInputs[i].enabled = true;
+                    if (!playerInputs[i].inputIsActive)
+                        playerInputs[i].ActivateInput();
+                }
+            }
+#endif
         }
     }
 }
